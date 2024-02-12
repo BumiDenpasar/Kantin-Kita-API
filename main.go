@@ -29,6 +29,7 @@ type Menu struct {
 	Harga         int    `json:"harga" binding:"required"`
 	Stok          int    `json:"stok" binding:"required"`
 	Loves         int    `json:"loves"`
+	Kategori      string `json:"kategori" binding:"required"`
 }
 
 type Seller struct {
@@ -152,7 +153,7 @@ func main() {
 
 	// get menu
 	r.GET("/api/menus", func(c *gin.Context) {
-		rows, err := db.Query("SELECT menu_id, seller_id, foto_produk, nama_menu, deskripsi_menu, harga, stok, loves FROM menu")
+		rows, err := db.Query("SELECT menu_id, seller_id, foto_produk, nama_menu, deskripsi_menu, harga, stok, loves, kategori FROM menu")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error querying database"})
 			return
@@ -163,7 +164,7 @@ func main() {
 
 		for rows.Next() {
 			var menu Menu
-			err := rows.Scan(&menu.MenuID, &menu.SellerID, &menu.FotoProduk, &menu.NamaMenu, &menu.DeskripsiMenu, &menu.Harga, &menu.Stok, &menu.Loves)
+			err := rows.Scan(&menu.MenuID, &menu.SellerID, &menu.FotoProduk, &menu.NamaMenu, &menu.DeskripsiMenu, &menu.Harga, &menu.Stok, &menu.Loves, &menu.Kategori)
 			if err != nil {
 				log.Println("Error scanning rows:", err) // Add this line for error logging
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error scanning rows"})
@@ -175,7 +176,7 @@ func main() {
 		c.JSON(http.StatusOK, menus)
 	})
 
-	//get seller's product
+	//get seller's menu
 	r.GET("/api/menus/:sellerID/product", func(c *gin.Context) {
 		sellerID := c.Param("sellerID")
 
@@ -185,7 +186,7 @@ func main() {
 			return
 		}
 
-		rows, err := db.Query("SELECT menu_id, seller_id, nama_menu, deskripsi_menu, harga, stok, loves FROM menu WHERE seller_id = ?", sellerIDInt)
+		rows, err := db.Query("SELECT menu_id, seller_id, nama_menu, deskripsi_menu, harga, stok, loves, kategori FROM menu WHERE seller_id = ?", sellerIDInt)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error querying database"})
 			return
@@ -229,6 +230,31 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, users)
+	})
+
+	// get top 3 menus by loves
+	r.GET("/api/menus/toploves", func(c *gin.Context) {
+		rows, err := db.Query("SELECT menu_id, seller_id, foto_produk, nama_menu, deskripsi_menu, harga, stok, loves, kategori FROM menu ORDER BY loves DESC LIMIT 3")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error querying database"})
+			return
+		}
+		defer rows.Close()
+
+		var menus []Menu
+
+		for rows.Next() {
+			var menu Menu
+			err := rows.Scan(&menu.MenuID, &menu.SellerID, &menu.FotoProduk, &menu.NamaMenu, &menu.DeskripsiMenu, &menu.Harga, &menu.Stok, &menu.Loves, &menu.Kategori)
+			if err != nil {
+				log.Println("Error scanning rows:", err) // Add this line for error logging
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error scanning rows"})
+				return
+			}
+			menus = append(menus, menu)
+		}
+
+		c.JSON(http.StatusOK, menus)
 	})
 
 	// post user
@@ -283,8 +309,8 @@ func main() {
 			return
 		}
 
-		result, err := db.Exec("INSERT INTO menu (seller_id, nama_menu, deskripsi_menu, harga, stok) VALUES (?, ?, ?, ?, ?)",
-			newMenu.SellerID, newMenu.NamaMenu, newMenu.DeskripsiMenu, newMenu.Harga, newMenu.Stok)
+		result, err := db.Exec("INSERT INTO menu (seller_id, nama_menu, deskripsi_menu, harga, stok, kategori) VALUES (?, ?, ?, ?, ?, ?)",
+			newMenu.SellerID, newMenu.NamaMenu, newMenu.DeskripsiMenu, newMenu.Harga, newMenu.Stok, newMenu.Kategori)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error inserting data into database"})
 			return
